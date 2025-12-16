@@ -67,3 +67,6 @@ Lib60870_getLibraryVersionInfo()
 
     return versionInfo;
 }
+
+
+

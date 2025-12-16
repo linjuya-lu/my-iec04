@@ -120,6 +120,22 @@ struct sCS101_AppLayerParameters {
 };
 
 /**
+ * \brief 文件操作
+ */
+#define FILE210_OP_DIR_CALL 1/* 读目录 */
+#define FILE210_OP_DIR_CALL_ACK 2/* 读目录确认 */
+#define FILE210_OP_READ_ACT 3/* 读文件激活 */
+#define FILE210_OP_READ_ACT_ACK 4/* 读文件激活确认 */
+#define FILE210_OP_READ_DATA 5/* 读文件数据 */
+#define FILE210_OP_READ_DATA_ACK 6/* 读文件数据确认 */
+#define FILE210_OP_WRITE_ACT 7/* 写文件激活 */
+#define FILE210_OP_WRITE_ACT_ACK 8/* 写文件激活确认 */
+#define FILE210_OP_WRITE_DATA 9/* 写文件数据 */
+#define FILE210_OP_WRITE_DATA_ACK 10/* 写文件数据确认 */
+#define FILE210_MAX_NAME 64/* 文件名最多 64 字节，不含 '\0' */
+#define FILE210_MAX_DIR_FILES   8
+
+/**
  * \brief Message type IDs
  */
 typedef enum {
@@ -203,10 +219,20 @@ typedef enum {
     F_AF_NA_1 = 124,
     F_SG_NA_1 = 125,
     F_DR_TA_1 = 126,
-    F_SC_NB_1 = 127
+    F_SC_NB_1 = 127,
+
+    M_FT_EXT_1 = 210   //TI = 210 文件传输
 } IEC60870_5_TypeID;
 
 typedef IEC60870_5_TypeID TypeID;
+
+
+
+/* =========  FileExt210 ============ */
+
+
+
+
 
 typedef struct sInformationObject* InformationObject;
 
@@ -894,6 +920,8 @@ Frame_getBuffer(Frame self);
 
 int
 Frame_getSpaceLeft(Frame self);
+
+
 
 #ifdef __cplusplus
 }

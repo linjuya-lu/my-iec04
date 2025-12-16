@@ -322,6 +322,8 @@ InformationObject_destroy(InformationObject self);
 
 typedef struct sSinglePointInformation* SinglePointInformation;
 
+
+
 SinglePointInformation
 SinglePointInformation_create(SinglePointInformation self, int ioa, bool value,
         QualityDescriptor quality);
@@ -334,6 +336,77 @@ SinglePointInformation_getQuality(SinglePointInformation self);
 
 void
 SinglePointInformation_destroy(SinglePointInformation self);
+
+/************************************************
+ * FileExt210 (:InformationObject)
+ * 厂规扩展：文件传输 TI = 210 (M_FT_EXT_1)
+ ************************************************/
+
+typedef struct sFileExt210* FileExt210;
+
+/* 创建 */
+FileExt210
+FileExt210_create(FileExt210 self,
+                  int       ioa,
+                  uint8_t   op,
+                  uint32_t  fileId,
+                  uint32_t  offset,
+                  uint8_t  *data,
+                  int       datalen);
+/* 解析 */
+FileExt210
+FileExt210_getFromBuffer(FileExt210               self,
+                         CS101_AppLayerParameters parameters,
+                         uint8_t                 *msg,
+                         int                      msgSize,
+                         int                      startIndex,
+                         bool                     isSequence);
+    
+/* 
+ * 命令
+ */
+FileExt210 FileExt210_createWriteAct(
+    int ioa, const uint8_t *name, uint8_t nameLen,
+    uint32_t fileId, uint32_t fileSize);
+
+FileExt210 FileExt210_createWriteData(
+    int ioa, uint32_t fileId, uint32_t segNo,
+    uint8_t hasMore, const uint8_t *data, int dataLen,
+    uint8_t checksum);
+
+
+    /* 读文件 3~6 */
+FileExt210 FileExt210_createReadAct(
+    int           ioa,
+    const uint8_t *name,
+    uint8_t       nameLen);
+
+FileExt210 FileExt210_createReadActAck(
+    int           ioa,
+    uint8_t       result,
+    const uint8_t *name,
+    uint8_t       nameLen,
+    uint32_t      fileId,
+    uint32_t      fileSize);
+
+FileExt210 FileExt210_createReadData(
+    int           ioa,
+    uint32_t      fileId,
+    uint32_t      segNo,
+    uint8_t       hasMore,
+    const uint8_t *data,
+    int           dataLen,
+    uint8_t       checksum);
+
+FileExt210 FileExt210_createReadDataAck(
+    int      ioa,
+    uint32_t fileId,
+    uint32_t segNo,
+    uint8_t  result);
+
+void
+FileExt210_destroy(FileExt210 self);
+
 
 /********************************************************
  *  SinglePointWithCP24Time2a (:SinglePointInformation)

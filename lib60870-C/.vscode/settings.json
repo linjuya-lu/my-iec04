@@ -1,0 +1,15 @@
+{
+    "files.associations": {
+        "*.scd": "xml",
+        "*.md": "markdown",
+        "lib_memory.h": "c",
+        "hal_time.h": "c",
+        "stdlib.h": "c",
+        "iec60870_common.h": "c",
+        "cs101_information_objects.h": "c",
+        "platform_endian.h": "c",
+        "information_objects_internal.h": "c",
+        "apl_types_internal.h": "c",
+        "stdbool.h": "c"
+    }
+}

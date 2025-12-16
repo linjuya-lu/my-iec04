@@ -1240,6 +1240,16 @@ CS101_ASDU_getElementEx(CS101_ASDU self, InformationObject io, int index)
 
         break;
 
+    case M_FT_EXT_1: /* 210 - 文件传输 */
+
+        retVal = (InformationObject) FileExt210_getFromBuffer((FileExt210) io,
+                                                              self->parameters,
+                                                              self->payload,
+                                                              self->payloadSize,
+                                                              0,
+                                                              false);
+        break;
+
     default:
     	DEBUG_PRINT("type %d not supported\n", CS101_ASDU_getTypeID(self));
     	break;
@@ -1453,6 +1463,9 @@ TypeID_toString(TypeID self)
 
     case F_SC_NB_1:
         return "F_SC_NB_1";
+
+    case M_FT_EXT_1:
+        return "M_FT_EXT_1";        
 
     default:
         return "unknown";

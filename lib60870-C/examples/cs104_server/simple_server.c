@@ -275,7 +275,7 @@ main(int argc, char** argv)
     CS104_Slave_setConnectionEventHandler(slave, connectionEventHandler, NULL);
 
     /* uncomment to log messages */
-    //CS104_Slave_setRawMessageHandler(slave, rawMessageHandler, NULL);
+    CS104_Slave_setRawMessageHandler(slave, rawMessageHandler, NULL);
 
     CS104_Slave_start(slave);
 
