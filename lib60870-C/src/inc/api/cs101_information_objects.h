@@ -337,13 +337,116 @@ SinglePointInformation_getQuality(SinglePointInformation self);
 void
 SinglePointInformation_destroy(SinglePointInformation self);
 
-/************************************************
- * FileExt210 (:InformationObject)
- * 厂规扩展：文件传输 TI = 210 (M_FT_EXT_1)
- ************************************************/
+/********************************************
+ * 文件服务
+ ********************************************/
+ /*文件名长度*/
+#ifndef FILE210_MAX_NAME
+#define FILE210_MAX_NAME    64
+#endif
+/*文件条目*/
+#ifndef FILE210_MAX_DIR_FILES
+#define FILE210_MAX_DIR_FILES   8
+#endif
+typedef struct
+{
+    uint8_t  nameLen;                             /*名称长度*/
+    char     name[FILE210_MAX_NAME + 1];          /*名称*/
+    uint8_t  attr;                                /*属性*/
+    uint32_t size;                                /*大小*/
+    uint8_t  time[7];                             /*时间*/
+} File210_DirFileEntry;
+
+struct sInformationObjectVFT;
+typedef struct sInformationObjectVFT* InformationObjectVFT;
+
+struct sFileExt210
+{
+    int                  objectAddress;         /*IOA*/
+    TypeID               type;                  /*类型标识符*/
+    InformationObjectVFT virtualFunctionTable;
+    uint8_t              packetType;            /*附加数据包类型*/
+    uint8_t              op;                    /*操作标识*/
+    union {
+        /*文件目录召唤*/
+        struct {
+            uint32_t dirId;                          /*目录ID*/
+            uint8_t  nameLen;                        /*目录名长度*/
+            char     name[FILE210_MAX_NAME + 1];     /*目录名*/
+            uint8_t  callFlag;                       /*召唤标志*/
+            uint8_t  beginTime[7];                   /*查询起始时间*/
+            uint8_t  endTime[7];                     /*查询终止时间*/
+        } dirCall;
+        /*目录召唤确认*/
+        struct {
+            uint8_t  result;                         /* 结果描述字：0 成功；1 失败 */
+            uint32_t dirId;                          /* 目录 ID */
+            uint8_t  hasMore;                        /* 后续标志：0 无后续；1 有后续 */
+            uint8_t  fileCount;                      /* 本帧实际文件个数 n */
+            File210_DirFileEntry files[FILE210_MAX_DIR_FILES];
+        } dirCallAck;
+        /*读文件激活*/
+        struct {
+            uint8_t nameLen;
+            char    name[FILE210_MAX_NAME + 1];
+        } readAct;
+        /*读文件激活确认*/
+        struct {
+            uint8_t  result;
+            uint8_t  nameLen;
+            char     name[FILE210_MAX_NAME + 1];
+            uint32_t fileId;
+            uint32_t fileSize;
+        } readActAck;
+        /*读文件数据*/
+        struct {
+            uint32_t      fileId;
+            uint32_t      segNo;
+            uint8_t       hasMore;
+            const uint8_t *data;
+            int           dataLen;
+            uint8_t       checksum;
+        } readData;
+        /*读文件数据响应*/
+        struct {
+            uint32_t fileId;
+            uint32_t segNo;
+            uint8_t  result;
+        } readDataAck;
+        /*写文件激活*/
+        struct {
+            uint8_t  nameLen;
+            char     name[FILE210_MAX_NAME + 1];
+            uint32_t fileId;
+            uint32_t fileSize;
+        } writeAct;
+        /*写文件激活确认*/
+        struct {
+            uint8_t  result;
+            uint8_t  nameLen;
+            char     name[FILE210_MAX_NAME + 1];
+            uint32_t fileId;
+            uint32_t fileSize;
+        } writeActAck;
+        /*写文件数据*/
+        struct {
+            uint32_t      fileId;
+            uint32_t      segNo;
+            uint8_t       hasMore;
+            const uint8_t *data;
+            int           dataLen;
+            uint8_t       checksum;
+        } writeData;
+        /*写文件数据确认*/
+        struct {
+            uint32_t fileId;
+            uint32_t segNo;
+            uint8_t  result;
+        } writeDataAck;
+    } u;
+};
 
 typedef struct sFileExt210* FileExt210;
-
 /* 创建 */
 FileExt210
 FileExt210_create(FileExt210 self,
@@ -362,25 +465,21 @@ FileExt210_getFromBuffer(FileExt210               self,
                          int                      startIndex,
                          bool                     isSequence);
     
-/* 
- * 命令
- */
+/*命令*/
 FileExt210 FileExt210_createWriteAct(
     int ioa, const uint8_t *name, uint8_t nameLen,
     uint32_t fileId, uint32_t fileSize);
-
 FileExt210 FileExt210_createWriteData(
     int ioa, uint32_t fileId, uint32_t segNo,
     uint8_t hasMore, const uint8_t *data, int dataLen,
     uint8_t checksum);
 
 
-    /* 读文件 3~6 */
+/*读文件*/
 FileExt210 FileExt210_createReadAct(
     int           ioa,
     const uint8_t *name,
     uint8_t       nameLen);
-
 FileExt210 FileExt210_createReadActAck(
     int           ioa,
     uint8_t       result,
@@ -388,7 +487,6 @@ FileExt210 FileExt210_createReadActAck(
     uint8_t       nameLen,
     uint32_t      fileId,
     uint32_t      fileSize);
-
 FileExt210 FileExt210_createReadData(
     int           ioa,
     uint32_t      fileId,
@@ -397,17 +495,12 @@ FileExt210 FileExt210_createReadData(
     const uint8_t *data,
     int           dataLen,
     uint8_t       checksum);
-
 FileExt210 FileExt210_createReadDataAck(
     int      ioa,
     uint32_t fileId,
     uint32_t segNo,
     uint8_t  result);
-
-void
-FileExt210_destroy(FileExt210 self);
-
-
+void FileExt210_destroy(FileExt210 self);
 /********************************************************
  *  SinglePointWithCP24Time2a (:SinglePointInformation)
  ********************************************************/

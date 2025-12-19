@@ -119,21 +119,19 @@ struct sCS101_AppLayerParameters {
     int maxSizeOfASDU;     /* maximum size of the ASDU that is generated - the maximum maximum value is 249 for IEC 104 and 254 for IEC 101 */
 };
 
-/**
- * \brief 文件操作
- */
-#define FILE210_OP_DIR_CALL 1/* 读目录 */
-#define FILE210_OP_DIR_CALL_ACK 2/* 读目录确认 */
-#define FILE210_OP_READ_ACT 3/* 读文件激活 */
-#define FILE210_OP_READ_ACT_ACK 4/* 读文件激活确认 */
-#define FILE210_OP_READ_DATA 5/* 读文件数据 */
-#define FILE210_OP_READ_DATA_ACK 6/* 读文件数据确认 */
-#define FILE210_OP_WRITE_ACT 7/* 写文件激活 */
-#define FILE210_OP_WRITE_ACT_ACK 8/* 写文件激活确认 */
-#define FILE210_OP_WRITE_DATA 9/* 写文件数据 */
-#define FILE210_OP_WRITE_DATA_ACK 10/* 写文件数据确认 */
-#define FILE210_MAX_NAME 64/* 文件名最多 64 字节，不含 '\0' */
-#define FILE210_MAX_DIR_FILES   8
+/*文件操作*/
+#define FILE210_OP_DIR_CALL 1   /*读目录*/
+#define FILE210_OP_DIR_CALL_ACK 2   /*读目录确认*/
+#define FILE210_OP_READ_ACT 3/*读文件激活 */
+#define FILE210_OP_READ_ACT_ACK 4/*读文件激活确认 */
+#define FILE210_OP_READ_DATA 5/*读文件数据 */
+#define FILE210_OP_READ_DATA_ACK 6/*读文件数据确认*/
+#define FILE210_OP_WRITE_ACT 7/*写文件激活*/
+#define FILE210_OP_WRITE_ACT_ACK 8/*写文件激活确认*/
+#define FILE210_OP_WRITE_DATA 9/*写文件数据*/
+#define FILE210_OP_WRITE_DATA_ACK 10/*写文件数据确认*/
+#define FILE210_MAX_NAME 64
+#define FILE210_MAX_DIR_FILES 8
 
 /**
  * \brief Message type IDs

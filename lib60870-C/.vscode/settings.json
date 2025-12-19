@@ -10,6 +10,12 @@
         "platform_endian.h": "c",
         "information_objects_internal.h": "c",
         "apl_types_internal.h": "c",
-        "stdbool.h": "c"
+        "stdbool.h": "c",
+        "stdint.h": "c",
+        "stdio.h": "c",
+        "hal_thread.h": "c",
+        "cs101_slave.h": "c",
+        "cerrno": "c",
+        "errno.h": "c"
     }
 }

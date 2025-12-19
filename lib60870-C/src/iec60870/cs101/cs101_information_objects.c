@@ -370,210 +370,161 @@ SinglePointInformation_getQuality(SinglePointInformation self)
 }
 
 /**********************************************
- * FileExt210  厂规扩展：文件传输 TI = 210 (M_FT_EXT_1)
- *
+ * 文件传输TI=210
  **********************************************/
-/* encode 回调：写入 APDU payload */
 static bool
-FileExt210_encode(FileExt210 self,
-                  Frame frame,
-                  CS101_AppLayerParameters parameters,
-                  bool isSequence)
+FileExt210_encode(FileExt210 self, Frame frame, CS101_AppLayerParameters parameters, bool isSequence)
 {
-    (void)isSequence;  /* 我们只支持非序列：一个 ASDU 只有一个 FileExt210 */
-
-    /* 先根据 op 计算本次要写的总字节数 */
-    int size = parameters->sizeOfIOA + 1; /* IOA + OP */
-
+    (void)isSequence;  
+    int size = parameters->sizeOfIOA + 2; /*IOA+packetType+OP*/
     switch (self->op) {
-
-    /* ===== 1/2 目录服务 ===== */
-
-    /* 1: 文件目录召唤（读目录） */
+    /* 读目录 */
     case FILE210_OP_DIR_CALL:
-        size += 4;                              /* dirId */
-        size += 1;                              /* nameLen */
-        size += self->u.dirCall.nameLen;        /* 目录名 x 字节 */
-        size += 1;                              /* callFlag */
-        size += 7;                              /* beginTime CP56Time2a */
-        size += 7;                              /* endTime   CP56Time2a */
+        size += 4;                              /*目录ID*/
+        size += 1;                              /*目录名长度*/
+        size += self->u.dirCall.nameLen;        /*目录名x字节*/
+        size += 1;                              /*召唤标志*/
+        size += 7;                              /*查询起始时间*/
+        size += 7;                              /*查询终止时间*/
         break;
-
-    /* 2: 目录召唤确认 */
+    /*目录召唤确认*/
     case FILE210_OP_DIR_CALL_ACK:
     {
-        size += 1;                              /* result */
-        size += 4;                              /* dirId */
-        size += 1;                              /* hasMore */
-        size += 1;                              /* fileCount */
-
+        size += 1;                              /*结果描述字*/
+        size += 4;                              /*目录ID*/
+        size += 1;                              /*后续标志*/
+        size += 1;                              /*文件数量*/
         uint8_t n = self->u.dirCallAck.fileCount;
         if (n > FILE210_MAX_DIR_FILES)
             n = FILE210_MAX_DIR_FILES;
-
         for (uint8_t i = 0; i < n; i++) {
             File210_DirFileEntry *e = &self->u.dirCallAck.files[i];
-            size += 1;                  /* nameLen */
-            size += e->nameLen;         /* name[x] */
-            size += 1;                  /* attr */
-            size += 4;                  /* size */
-            size += 7;                  /* time CP56Time2a */
+            size += 1;                  /*名称长度*/
+            size += e->nameLen;         /*名称*/
+            size += 1;                  /*属性*/
+            size += 4;                  /*大小*/
+            size += 7;                  /*时间*/
         }
         break;
     }
-
-    /* ===== 读文件 3/4/5/6 ===== */
-
-    case FILE210_OP_READ_ACT:        /* 3: 读文件激活 */
-        size += 1;                             /* nameLen */
-        size += self->u.readAct.nameLen;       /* name[x] */
+    /*读文件3/4/5/6 */
+    case FILE210_OP_READ_ACT:       
+        size += 1;                             /*文件名长度*/
+        size += self->u.readAct.nameLen;       /*文件名*/
         break;
-
-    case FILE210_OP_READ_ACT_ACK:    /* 4: 读文件激活确认 */
-        size += 1;                             /* result */
-        size += 1;                             /* nameLen */
-        size += self->u.readActAck.nameLen;    /* name[x] */
-        size += 4;                             /* fileId */
-        size += 4;                             /* fileSize */
+    case FILE210_OP_READ_ACT_ACK:   
+        size += 1;                             /*结果描述字*/
+        size += 1;                             /*文件名长度*/
+        size += self->u.readActAck.nameLen;    /*文件名*/
+        size += 4;                             /*文件ID*/
+        size += 4;                             /*文件大小*/
         break;
-
-    case FILE210_OP_READ_DATA:       /* 5: 读文件数据 */
-        size += 4;                             /* fileId */
-        size += 4;                             /* segNo */
-        size += 1;                             /* hasMore */
-        size += self->u.readData.dataLen;      /* data[..] */
-        size += 1;                             /* checksum */
+    case FILE210_OP_READ_DATA:      
+        size += 4;                             /*文件ID*/
+        size += 4;                             /*数据段号*/
+        size += 1;                             /*后续标志*/
+        size += self->u.readData.dataLen;      /*文件数据*/
+        size += 1;                             /*校验码*/
         break;
-
-    case FILE210_OP_READ_DATA_ACK:   /* 6: 读文件数据确认 */
-        size += 4;                             /* fileId */
-        size += 4;                             /* segNo */
-        size += 1;                             /* result */
+    case FILE210_OP_READ_DATA_ACK:  
+        size += 4;                             /*文件ID*/
+        size += 4;                             /*数据段号*/
+        size += 1;                             /*结果描述字*/
         break;
-
-    /* ===== 写文件 7/8/9/10 ===== */
-
-    case FILE210_OP_WRITE_ACT:        /* 7：写文件激活 */
-        size += 1;                              /* nameLen */
-        size += self->u.writeAct.nameLen;       /* 文件名 */
-        size += 4;                              /* fileId */
-        size += 4;                              /* fileSize */
+    /*写文件7/8/9/10*/
+    case FILE210_OP_WRITE_ACT:       
+        size += 1;                              /*文件名长度*/
+        size += self->u.writeAct.nameLen;       /*文件名*/
+        size += 4;                              /*文件ID*/
+        size += 4;                              /*文件大小*/
         break;
-
-    case FILE210_OP_WRITE_ACT_ACK:    /* 8：写文件激活确认 */
-        size += 1;                              /* result */
-        size += 1;                              /* nameLen */
-        size += self->u.writeActAck.nameLen;    /* 文件名 */
-        size += 4;                              /* fileId */
-        size += 4;                              /* fileSize */
+    case FILE210_OP_WRITE_ACT_ACK:    
+        size += 1;                              /*结果描述字*/
+        size += 1;                              /*文件名长度*/
+        size += self->u.writeActAck.nameLen;    /*文件名*/
+        size += 4;                              /*文件ID*/
+        size += 4;                              /*文件大小*/
         break;
-
-    case FILE210_OP_WRITE_DATA:       /* 9：写文件数据 */
-        size += 4;                              /* fileId */
-        size += 4;                              /* segNo */
-        size += 1;                              /* hasMore */
-        size += self->u.writeData.dataLen;      /* 文件数据 */
-        size += 1;                              /* checksum */
+    case FILE210_OP_WRITE_DATA:      
+        size += 4;                              /*文件ID*/
+        size += 4;                              /*数据段号*/
+        size += 1;                              /*后续标志*/
+        size += self->u.writeData.dataLen;      /*文件数据*/
+        size += 1;                              /*校验码*/
         break;
-
-    case FILE210_OP_WRITE_DATA_ACK:   /* 10：写文件数据确认 */
-        size += 4;                              /* fileId */
-        size += 4;                              /* segNo */
-        size += 1;                              /* result */
+    case FILE210_OP_WRITE_DATA_ACK:  
+        size += 4;                              /*文件ID*/
+        size += 4;                              /*数据段号*/
+        size += 1;                              /*结果描述字*/
         break;
-
     default:
         DEBUG_PRINT("FileExt210_encode: unsupported op=%u\n", self->op);
         return false;
     }
-
     if (Frame_getSpaceLeft(frame) < size)
         return false;
-
-    /* 先写 IOA + 公共信息对象头 */
+    /*写IOA+公共信息对象头*/
     InformationObject_encodeBase((InformationObject) self, frame, parameters, false);
-
-    /* 写 op */
+    /*写op*/
+    Frame_setNextByte(frame, self->packetType);
     Frame_setNextByte(frame, self->op);
-
-    /* ---------- 3) 根据 op 写各自字段 ---------- */
     switch (self->op) {
-
-    /* === 1: 目录召唤 === */
+    /*目录召唤*/
     case FILE210_OP_DIR_CALL: {
-        /* dirId 小端 */
         uint32_t id = self->u.dirCall.dirId;
         Frame_setNextByte(frame, (uint8_t)( id        & 0xff));
         Frame_setNextByte(frame, (uint8_t)((id >> 8 ) & 0xff));
         Frame_setNextByte(frame, (uint8_t)((id >> 16) & 0xff));
         Frame_setNextByte(frame, (uint8_t)((id >> 24) & 0xff));
-
         /* nameLen + name */
         Frame_setNextByte(frame, self->u.dirCall.nameLen);
         for (int i = 0; i < self->u.dirCall.nameLen; i++)
             Frame_setNextByte(frame, (uint8_t)self->u.dirCall.name[i]);
-
         /* 召唤标志 */
         Frame_setNextByte(frame, self->u.dirCall.callFlag);
-
         /* 起始时间 7 字节 */
         for (int i = 0; i < 7; i++)
             Frame_setNextByte(frame, self->u.dirCall.beginTime[i]);
-
         /* 结束时间 7 字节 */
         for (int i = 0; i < 7; i++)
             Frame_setNextByte(frame, self->u.dirCall.endTime[i]);
-
         break;
     }
-
-    /* === 2: 目录召唤确认 === */
+    /*目录召唤确认*/
     case FILE210_OP_DIR_CALL_ACK: {
         Frame_setNextByte(frame, self->u.dirCallAck.result);
-
         uint32_t id = self->u.dirCallAck.dirId;
         Frame_setNextByte(frame, (uint8_t)( id        & 0xff));
         Frame_setNextByte(frame, (uint8_t)((id >> 8 ) & 0xff));
         Frame_setNextByte(frame, (uint8_t)((id >> 16) & 0xff));
         Frame_setNextByte(frame, (uint8_t)((id >> 24) & 0xff));
-
         Frame_setNextByte(frame, self->u.dirCallAck.hasMore);
-
         uint8_t n = self->u.dirCallAck.fileCount;
         if (n > FILE210_MAX_DIR_FILES)
             n = FILE210_MAX_DIR_FILES;
         Frame_setNextByte(frame, n);   /* 文件数量 */
-
         for (uint8_t i = 0; i < n; i++) {
             File210_DirFileEntry *e = &self->u.dirCallAck.files[i];
-
             Frame_setNextByte(frame, e->nameLen);
             for (int k = 0; k < e->nameLen; k++)
                 Frame_setNextByte(frame, (uint8_t)e->name[k]);
-
             Frame_setNextByte(frame, e->attr);
-
             uint32_t sz = e->size;
             Frame_setNextByte(frame, (uint8_t)( sz        & 0xff));
             Frame_setNextByte(frame, (uint8_t)((sz >> 8 ) & 0xff));
             Frame_setNextByte(frame, (uint8_t)((sz >> 16) & 0xff));
             Frame_setNextByte(frame, (uint8_t)((sz >> 24) & 0xff));
-
             for (int k = 0; k < 7; k++)
                 Frame_setNextByte(frame, e->time[k]);
         }
         break;
     }
-
-    /* === 3~10：保持你原来的实现 === */
-
     case FILE210_OP_READ_ACT: {
         Frame_setNextByte(frame, self->u.readAct.nameLen);
         for (int i = 0; i < self->u.readAct.nameLen; i++)
             Frame_setNextByte(frame, (uint8_t)self->u.readAct.name[i]);
         break;
     }
-
     case FILE210_OP_READ_ACT_ACK: {
         Frame_setNextByte(frame, self->u.readActAck.result);
         Frame_setNextByte(frame, self->u.readActAck.nameLen);
@@ -593,7 +544,6 @@ FileExt210_encode(FileExt210 self,
         Frame_setNextByte(frame, (uint8_t)((fs >> 24) & 0xff));
         break;
     }
-
     case FILE210_OP_READ_DATA: {
         uint32_t id = self->u.readData.fileId;
         Frame_setNextByte(frame, (uint8_t)( id        & 0xff));
@@ -613,7 +563,6 @@ FileExt210_encode(FileExt210 self,
         Frame_setNextByte(frame, self->u.readData.checksum);
         break;
     }
-
     case FILE210_OP_READ_DATA_ACK: {
         uint32_t id = self->u.readDataAck.fileId;
         Frame_setNextByte(frame, (uint8_t)( id        & 0xff));
@@ -630,7 +579,6 @@ FileExt210_encode(FileExt210 self,
         Frame_setNextByte(frame, self->u.readDataAck.result);
         break;
     }
-
     case FILE210_OP_WRITE_ACT: {
         Frame_setNextByte(frame, self->u.writeAct.nameLen);
         for (int i = 0; i < self->u.writeAct.nameLen; i++)
@@ -649,7 +597,6 @@ FileExt210_encode(FileExt210 self,
         Frame_setNextByte(frame, (uint8_t)((fs >> 24) & 0xff));
         break;
     }
-
     case FILE210_OP_WRITE_ACT_ACK: {
         Frame_setNextByte(frame, self->u.writeActAck.result);
 
@@ -670,7 +617,6 @@ FileExt210_encode(FileExt210 self,
         Frame_setNextByte(frame, (uint8_t)((fs >> 24) & 0xff));
         break;
     }
-
     case FILE210_OP_WRITE_DATA: {
         uint32_t id = self->u.writeData.fileId;
         Frame_setNextByte(frame, (uint8_t)( id        & 0xff));
@@ -690,7 +636,6 @@ FileExt210_encode(FileExt210 self,
         Frame_setNextByte(frame, self->u.writeData.checksum);
         break;
     }
-
     case FILE210_OP_WRITE_DATA_ACK: {
         uint32_t id = self->u.writeDataAck.fileId;
         Frame_setNextByte(frame, (uint8_t)( id        & 0xff));
@@ -707,28 +652,22 @@ FileExt210_encode(FileExt210 self,
         Frame_setNextByte(frame, self->u.writeDataAck.result);
         break;
     }
-
     default:
         return false;
     }
-
     return true;
 }
 
-
-
-/* 虚表：encode + destroy */
 struct sInformationObjectVFT fileExt210VFT = {
     (EncodeFunction)  FileExt210_encode,
     (DestroyFunction) FileExt210_destroy
 };
 
-/* 初始化：挂上虚表、设置 typeId */
 static void
 FileExt210_initialize(FileExt210 self)
 {
     self->virtualFunctionTable = &fileExt210VFT;
-    self->type                 = M_FT_EXT_1;   /* 210 */
+    self->type                 = M_FT_EXT_1;   
 }
 
 static FileExt210
@@ -737,54 +676,44 @@ FileExt210_new(int ioa, uint8_t op)
     FileExt210 self = (FileExt210)GLOBAL_CALLOC(1, sizeof(struct sFileExt210));
     if (self == NULL)
         return NULL;
-
     FileExt210_initialize(self);
     self->objectAddress = ioa;
+    self->packetType    = 0x02;   
     self->op            = op;
-
     return self;
 }
-
-/* 1: 文件目录召唤（主站 -> 从站） */
+/*文件目录召唤（主站->从站）*/
 FileExt210
 FileExt210_createDirCall(int           ioa,
                          uint32_t      dirId,
                          const uint8_t *name,
                          uint8_t       nameLen,
                          uint8_t       callFlag,
-                         const uint8_t *beginTime,   /* 7 字节 CP56Time2a, 可为 NULL */
-                         const uint8_t *endTime)     /* 7 字节 CP56Time2a, 可为 NULL */
+                         const uint8_t *beginTime,   /*7字节CP56Time2a*/
+                         const uint8_t *endTime)     /*7字节CP56Time2a*/
 {
     FileExt210 self = FileExt210_new(ioa, FILE210_OP_DIR_CALL);
     if (self == NULL)
         return NULL;
-
     self->u.dirCall.dirId = dirId;
-
     if (nameLen > FILE210_MAX_NAME)
         nameLen = FILE210_MAX_NAME;
-
     self->u.dirCall.nameLen = nameLen;
     if (name && nameLen > 0)
         memcpy(self->u.dirCall.name, name, nameLen);
     self->u.dirCall.name[nameLen] = '\0';
-
     self->u.dirCall.callFlag = callFlag;
-
     if (beginTime)
         memcpy(self->u.dirCall.beginTime, beginTime, 7);
     else
         memset(self->u.dirCall.beginTime, 0, 7);
-
     if (endTime)
         memcpy(self->u.dirCall.endTime, endTime, 7);
     else
         memset(self->u.dirCall.endTime, 0, 7);
-
     return self;
 }
-
-/* 2: 目录召唤确认（从站 -> 主站） */
+/*目录召唤确认（从站->主站）*/
 FileExt210
 FileExt210_createDirCallAck(int                        ioa,
                             uint8_t                    result,
@@ -796,37 +725,29 @@ FileExt210_createDirCallAck(int                        ioa,
     FileExt210 self = FileExt210_new(ioa, FILE210_OP_DIR_CALL_ACK);
     if (self == NULL)
         return NULL;
-
     self->u.dirCallAck.result  = result;
     self->u.dirCallAck.dirId   = dirId;
     self->u.dirCallAck.hasMore = hasMore;
-
     if (fileCount > FILE210_MAX_DIR_FILES)
         fileCount = FILE210_MAX_DIR_FILES;
-
     self->u.dirCallAck.fileCount = fileCount;
-
     for (uint8_t i = 0; i < fileCount; i++) {
         const File210_DirFileEntry *src = &files[i];
         File210_DirFileEntry       *dst = &self->u.dirCallAck.files[i];
-
         uint8_t nameLen = src->nameLen;
         if (nameLen > FILE210_MAX_NAME)
             nameLen = FILE210_MAX_NAME;
-
         dst->nameLen = nameLen;
         if (nameLen > 0)
             memcpy(dst->name, src->name, nameLen);
         dst->name[nameLen] = '\0';
-
         dst->attr = src->attr;
         dst->size = src->size;
         memcpy(dst->time, src->time, 7);
     }
-
     return self;
 }
-/* 7: 写文件激活（主站 -> 从站） */
+/*写文件激活（主站->从站）*/
 FileExt210
 FileExt210_createWriteAct(int           ioa,
                           const uint8_t *name,
@@ -837,22 +758,17 @@ FileExt210_createWriteAct(int           ioa,
     FileExt210 self = FileExt210_new(ioa, FILE210_OP_WRITE_ACT);
     if (self == NULL)
         return NULL;
-
     self->u.writeAct.fileId   = fileId;
     self->u.writeAct.fileSize = fileSize;
-
     if (nameLen > FILE210_MAX_NAME)
         nameLen = FILE210_MAX_NAME;
-
     self->u.writeAct.nameLen = nameLen;
     if (name && nameLen > 0)
         memcpy(self->u.writeAct.name, name, nameLen);
     self->u.writeAct.name[nameLen] = '\0';
-
     return self;
 }
-
-/* 8: 写文件激活确认（从站 -> 主站） */
+/*写文件激活确认（从站->主站）*/
 FileExt210
 FileExt210_createWriteActAck(int           ioa,
                              uint8_t       result,
@@ -864,23 +780,18 @@ FileExt210_createWriteActAck(int           ioa,
     FileExt210 self = FileExt210_new(ioa, FILE210_OP_WRITE_ACT_ACK);
     if (self == NULL)
         return NULL;
-
     self->u.writeActAck.result   = result;
     self->u.writeActAck.fileId   = fileId;
     self->u.writeActAck.fileSize = fileSize;
-
     if (nameLen > FILE210_MAX_NAME)
         nameLen = FILE210_MAX_NAME;
-
     self->u.writeActAck.nameLen = nameLen;
     if (name && nameLen > 0)
         memcpy(self->u.writeActAck.name, name, nameLen);
     self->u.writeActAck.name[nameLen] = '\0';
-
     return self;
 }
-
-/* 9: 写文件数据（主站 -> 从站） */
+/*写文件数据（主站->从站）*/
 FileExt210
 FileExt210_createWriteData(int           ioa,
                            uint32_t      fileId,
@@ -893,12 +804,10 @@ FileExt210_createWriteData(int           ioa,
     FileExt210 self = FileExt210_new(ioa, FILE210_OP_WRITE_DATA);
     if (self == NULL)
         return NULL;
-
     self->u.writeData.fileId   = fileId;
     self->u.writeData.segNo    = segNo;
     self->u.writeData.hasMore  = hasMore;
     self->u.writeData.checksum = checksum;
-
     if (data && dataLen > 0) {
         self->u.writeData.data = (uint8_t *)GLOBAL_MALLOC(dataLen);
         if (self->u.writeData.data) {
@@ -914,11 +823,9 @@ FileExt210_createWriteData(int           ioa,
         self->u.writeData.data    = NULL;
         self->u.writeData.dataLen = 0;
     }
-
     return self;
 }
-
-/* 10: 写文件数据传输确认（从站 -> 主站） */
+/*写文件数据传输确认（从站->主站）*/
 FileExt210
 FileExt210_createWriteDataAck(int      ioa,
                               uint32_t fileId,
@@ -928,16 +835,12 @@ FileExt210_createWriteDataAck(int      ioa,
     FileExt210 self = FileExt210_new(ioa, FILE210_OP_WRITE_DATA_ACK);
     if (self == NULL)
         return NULL;
-
     self->u.writeDataAck.fileId = fileId;
     self->u.writeDataAck.segNo  = segNo;
     self->u.writeDataAck.result = result;
-
     return self;
 }
-
-
-/* 3: 读文件激活（主站 -> 从站） */
+/*读文件激活（主站->从站）*/
 FileExt210
 FileExt210_createReadAct(int           ioa,
                          const uint8_t *name,
@@ -946,21 +849,16 @@ FileExt210_createReadAct(int           ioa,
     FileExt210 self = FileExt210_new(ioa, FILE210_OP_READ_ACT);
     if (self == NULL)
         return NULL;
-
     if (nameLen > FILE210_MAX_NAME)
         nameLen = FILE210_MAX_NAME;
-
     self->u.readAct.nameLen = nameLen;
-
     if (name != NULL && nameLen > 0) {
         memcpy(self->u.readAct.name, name, nameLen);
     }
-    self->u.readAct.name[nameLen] = '\0'; /* 仅用于调试，协议里不会发这个 '\0' */
-
+    self->u.readAct.name[nameLen] = '\0'; 
     return self;
 }
-
-/* 4: 读文件激活确认（从站 -> 主站） */
+/*读文件激活确认（从站->主站）*/
 FileExt210
 FileExt210_createReadActAck(int           ioa,
                             uint8_t       result,
@@ -972,26 +870,19 @@ FileExt210_createReadActAck(int           ioa,
     FileExt210 self = FileExt210_new(ioa, FILE210_OP_READ_ACT_ACK);
     if (self == NULL)
         return NULL;
-
     self->u.readActAck.result   = result;
     self->u.readActAck.fileId   = fileId;
     self->u.readActAck.fileSize = fileSize;
-
     if (nameLen > FILE210_MAX_NAME)
         nameLen = FILE210_MAX_NAME;
-
     self->u.readActAck.nameLen = nameLen;
-
     if (name != NULL && nameLen > 0) {
         memcpy(self->u.readActAck.name, name, nameLen);
     }
     self->u.readActAck.name[nameLen] = '\0';
-
     return self;
 }
-
-
-/* 5: 读文件数据（从站 -> 主站） */
+/*读文件数据（从站->主站）*/
 FileExt210
 FileExt210_createReadData(int           ioa,
                           uint32_t      fileId,
@@ -1004,19 +895,15 @@ FileExt210_createReadData(int           ioa,
     FileExt210 self = FileExt210_new(ioa, FILE210_OP_READ_DATA);
     if (self == NULL)
         return NULL;
-
     self->u.readData.fileId   = fileId;
     self->u.readData.segNo    = segNo;
     self->u.readData.hasMore  = hasMore;
-    self->u.readData.data     = data;     /* 只保存指针，不复制 */
+    self->u.readData.data     = data;     
     self->u.readData.dataLen  = dataLen;
     self->u.readData.checksum = checksum;
-
     return self;
 }
-
-
-/* 6: 读文件数据确认（主站 -> 从站） */
+/*读文件数据确认（主站->从站）*/
 FileExt210
 FileExt210_createReadDataAck(int      ioa,
                              uint32_t fileId,
@@ -1026,18 +913,13 @@ FileExt210_createReadDataAck(int      ioa,
     FileExt210 self = FileExt210_new(ioa, FILE210_OP_READ_DATA_ACK);
     if (self == NULL)
         return NULL;
-
     self->u.readDataAck.fileId = fileId;
     self->u.readDataAck.segNo  = segNo;
-    self->u.readDataAck.result = result;  /* 0 无后续，1 有后续 */
-
+    self->u.readDataAck.result = result;  
     return self;
 }
 
-
-
-/* ---------- 接收侧解析：从 ASDU buffer 反解 ---------- */
-/* 小端读 u32 的工具函数（你前面应该已经有了，没有就顺手加一个） */
+/*接收侧解析*/
 static uint32_t get_le32(const uint8_t *p)
 {
     return ((uint32_t)p[0])
@@ -1045,8 +927,6 @@ static uint32_t get_le32(const uint8_t *p)
          | ((uint32_t)p[2] << 16)
          | ((uint32_t)p[3] << 24);
 }
-
-/* ---------- 接收侧解析：从 ASDU buffer 反解 ---------- */
 FileExt210
 FileExt210_getFromBuffer(FileExt210 self,
                          CS101_AppLayerParameters parameters,
@@ -1057,68 +937,75 @@ FileExt210_getFromBuffer(FileExt210 self,
         DEBUG_PRINT("FileExt210: sequence not supported\n");
         return NULL;
     }
-
-    if (!self)
+    bool allocated = false;
+    if (self == NULL) {
         self = (FileExt210) GLOBAL_MALLOC(sizeof(struct sFileExt210));
-    if (!self)
-        return NULL;
-
+        if (!self)
+            return NULL;
+        memset(self, 0, sizeof(struct sFileExt210));
+        allocated = true;
+    }
+    else {
+        memset(&self->u, 0, sizeof(self->u));
+    }
     FileExt210_initialize(self);
-
+    /*startIndex指向IOA起始*/
     int idx = startIndex;
-
-    /* 先取 IOA */
-    InformationObject_getFromBuffer((InformationObject) self, parameters, msg, idx);
-    idx += parameters->sizeOfIOA;
-
-    /* OP = 操作标识 1/2/3/4/.../10 */
-    if (idx >= msgSize) {
-        DEBUG_PRINT("FileExt210_getFromBuffer: no op byte\n");
-        GLOBAL_FREEMEM(self);
+    /*IOA*/
+    if (idx + parameters->sizeOfIOA > msgSize) {
+        DEBUG_PRINT("FileExt210_getFromBuffer: IOA out of bounds\n");
+        if (allocated) GLOBAL_FREEMEM(self);
         return NULL;
     }
-    self->op = msg[idx++];
-
+    InformationObject_getFromBuffer((InformationObject) self, parameters, msg, idx);
+    idx += parameters->sizeOfIOA;
+    if (idx >= msgSize) {
+        DEBUG_PRINT("FileExt210_getFromBuffer: no op byte\n");
+        if (allocated) GLOBAL_FREEMEM(self);
+        return NULL;
+    }
+    uint8_t b0 = msg[idx++];
+    if (b0 == 0x02) {
+        if (idx >= msgSize) {
+            DEBUG_PRINT("FileExt210_getFromBuffer: packetType=0x02 but missing op\n");
+            if (allocated) GLOBAL_FREEMEM(self);
+            return NULL;
+        }
+        self->op = msg[idx++];
+    }
+    else {
+        self->op = b0; 
+    }
     switch (self->op) {
-
-    /**************** 1：文件目录召唤（命令） ****************/
+    /*文件目录召唤*/
     case FILE210_OP_DIR_CALL:
     {
-        /* 至少要有 dirId(4) + nameLen(1) */
         if (idx + 5 > msgSize) {
             DEBUG_PRINT("FileExt210 DIR_CALL: too small\n");
             GLOBAL_FREEMEM(self);
             return NULL;
         }
-
-        /* 目录 ID */
+        /*目录ID*/
         self->u.dirCall.dirId = get_le32(msg + idx);
         idx += 4;
-
-        /* 目录名长度 */
+        /*目录名长度*/
         self->u.dirCall.nameLen = msg[idx++];
-
         int rawNameLen = self->u.dirCall.nameLen;
         if (rawNameLen < 0) rawNameLen = 0;
         if (idx + rawNameLen > msgSize)
-            rawNameLen = msgSize - idx;                 /* 防止越界 */
-
+            rawNameLen = msgSize - idx;      
         int copyLen = rawNameLen;
         if (copyLen > FILE210_MAX_NAME)
             copyLen = FILE210_MAX_NAME;
-
         if (copyLen > 0)
             memcpy(self->u.dirCall.name, msg + idx, copyLen);
         self->u.dirCall.name[copyLen] = '\0';
-        idx += rawNameLen;                              /* 跳过完整的目录名字节 */
-
-        /* 召唤标志 + 起止时间，如果长度不够就尽量读一点 */
+        idx += rawNameLen;                   
         if (idx < msgSize)
             self->u.dirCall.callFlag = msg[idx++];
         else
             self->u.dirCall.callFlag = 0;
-
-        /* beginTime */
+        /*beginTime*/
         int remain = msgSize - idx;
         int tcopy = (remain >= 7) ? 7 : remain;
         if (tcopy > 0)
@@ -1126,8 +1013,7 @@ FileExt210_getFromBuffer(FileExt210 self,
         if (tcopy < 7)
             memset(self->u.dirCall.beginTime + tcopy, 0, 7 - tcopy);
         idx += tcopy;
-
-        /* endTime */
+        /*endTime*/
         remain = msgSize - idx;
         tcopy  = (remain >= 7) ? 7 : remain;
         if (tcopy > 0)
@@ -1135,54 +1021,41 @@ FileExt210_getFromBuffer(FileExt210 self,
         if (tcopy < 7)
             memset(self->u.dirCall.endTime + tcopy, 0, 7 - tcopy);
         idx += tcopy;
-
         break;
     }
-
-    /**************** 2：目录召唤确认 ****************/
+    /*目录召唤确认*/
     case FILE210_OP_DIR_CALL_ACK:
     {
-        /* result(1) + dirId(4) + hasMore(1) + fileCount(1) */
         if (idx + 7 > msgSize) {
             DEBUG_PRINT("FileExt210 DIR_CALL_ACK: too small\n");
             GLOBAL_FREEMEM(self);
             return NULL;
         }
-
         self->u.dirCallAck.result  = msg[idx++];
         self->u.dirCallAck.dirId   = get_le32(msg + idx); idx += 4;
         self->u.dirCallAck.hasMore = msg[idx++];
         uint8_t n = msg[idx++];
-
         if (n > FILE210_MAX_DIR_FILES)
             n = FILE210_MAX_DIR_FILES;
-        self->u.dirCallAck.fileCount = 0;          /* 实际解析到多少再更新 */
-
+        self->u.dirCallAck.fileCount = 0;         
         for (uint8_t i = 0; i < n && idx < msgSize; i++) {
             File210_DirFileEntry *e = &self->u.dirCallAck.files[i];
-
             if (idx >= msgSize) break;
             e->nameLen = msg[idx++];
-
             int rawNameLen = e->nameLen;
             if (idx + rawNameLen > msgSize)
                 rawNameLen = msgSize - idx;
-
             int copyLen = rawNameLen;
             if (copyLen > FILE210_MAX_NAME)
                 copyLen = FILE210_MAX_NAME;
-
             if (copyLen > 0)
                 memcpy(e->name, msg + idx, copyLen);
             e->name[copyLen] = '\0';
             idx += rawNameLen;
-
             if (idx >= msgSize) { e->attr = 0; e->size = 0; memset(e->time, 0, 7); break; }
             e->attr = msg[idx++];
-
             if (idx + 4 > msgSize) { e->size = 0; memset(e->time, 0, 7); break; }
             e->size = get_le32(msg + idx); idx += 4;
-
             int remain = msgSize - idx;
             int tcopy  = (remain >= 7) ? 7 : remain;
             if (tcopy > 0)
@@ -1190,14 +1063,11 @@ FileExt210_getFromBuffer(FileExt210 self,
             if (tcopy < 7)
                 memset(e->time + tcopy, 0, 7 - tcopy);
             idx += tcopy;
-
             self->u.dirCallAck.fileCount++;
         }
-
         break;
     }
-
-    /**************** 3：读文件激活（命令） ****************/
+    /*读文件激活（命令）*/
     case FILE210_OP_READ_ACT:
     {
         if (idx >= msgSize) {
@@ -1205,83 +1075,62 @@ FileExt210_getFromBuffer(FileExt210 self,
             GLOBAL_FREEMEM(self);
             return NULL;
         }
-
         self->u.readAct.nameLen = msg[idx++];
-
         int rawNameLen = self->u.readAct.nameLen;
         if (rawNameLen < 0) rawNameLen = 0;
         if (idx + rawNameLen > msgSize)
             rawNameLen = msgSize - idx;
-
         int copyLen = rawNameLen;
         if (copyLen > FILE210_MAX_NAME)
             copyLen = FILE210_MAX_NAME;
-
         if (copyLen > 0)
             memcpy(self->u.readAct.name, msg + idx, copyLen);
         self->u.readAct.name[copyLen] = '\0';
         idx += rawNameLen;
-
         break;
     }
-
-    /**************** 4：读文件激活确认 ****************/
+    /*读文件激活确认*/
     case FILE210_OP_READ_ACT_ACK:
     {
-        /* result(1) + nameLen(1) 起码要 2 字节 */
         if (idx + 2 > msgSize) {
             DEBUG_PRINT("FileExt210 READ_ACT_ACK: too small\n");
             GLOBAL_FREEMEM(self);
             return NULL;
         }
-
         self->u.readActAck.result  = msg[idx++];
         self->u.readActAck.nameLen = msg[idx++];
-
         int rawNameLen = self->u.readActAck.nameLen;
         if (idx + rawNameLen > msgSize)
             rawNameLen = msgSize - idx;
-
         int copyLen = rawNameLen;
         if (copyLen > FILE210_MAX_NAME)
             copyLen = FILE210_MAX_NAME;
-
         if (copyLen > 0)
             memcpy(self->u.readActAck.name, msg + idx, copyLen);
         self->u.readActAck.name[copyLen] = '\0';
         idx += rawNameLen;
-
-        /* 剩下要有 fileId + fileSize 共 8 字节 */
         if (idx + 8 > msgSize) {
             DEBUG_PRINT("FileExt210 READ_ACT_ACK: missing fileId/fileSize\n");
             break;
         }
-
         self->u.readActAck.fileId   = get_le32(msg + idx); idx += 4;
         self->u.readActAck.fileSize = get_le32(msg + idx); idx += 4;
-
         break;
     }
-
-    /**************** 5：读文件数据 ****************/
+    /*读文件数据*/
     case FILE210_OP_READ_DATA:
     {
-        /* fileId(4) + segNo(4) + hasMore(1) 至少 9 字节 */
         if (idx + 9 > msgSize) {
             DEBUG_PRINT("FileExt210 READ_DATA: too small\n");
             GLOBAL_FREEMEM(self);
             return NULL;
         }
-
         self->u.readData.fileId = get_le32(msg + idx); idx += 4;
         self->u.readData.segNo  = get_le32(msg + idx); idx += 4;
         self->u.readData.hasMore = msg[idx++];
-
-        /* 剩下 = data + checksum(1) */
         self->u.readData.dataLen = msgSize - idx - 1;
         if (self->u.readData.dataLen < 0)
             self->u.readData.dataLen = 0;
-
         if (self->u.readData.dataLen > 0) {
             self->u.readData.data = (uint8_t *) GLOBAL_MALLOC(self->u.readData.dataLen);
             if (self->u.readData.data)
@@ -1291,16 +1140,13 @@ FileExt210_getFromBuffer(FileExt210 self,
         else {
             self->u.readData.data = NULL;
         }
-
         if (idx < msgSize)
             self->u.readData.checksum = msg[idx++];
         else
             self->u.readData.checksum = 0;
-
         break;
     }
-
-    /**************** 6：读文件数据响应 ****************/
+    /*读文件数据响应*/
     case FILE210_OP_READ_DATA_ACK:
     {
         if (idx + 9 > msgSize) {
@@ -1308,27 +1154,21 @@ FileExt210_getFromBuffer(FileExt210 self,
             GLOBAL_FREEMEM(self);
             return NULL;
         }
-
         self->u.readDataAck.fileId = get_le32(msg + idx); idx += 4;
         self->u.readDataAck.segNo  = get_le32(msg + idx); idx += 4;
-        self->u.readDataAck.result = msg[idx++];   /* 0 无后续，1 有后续 */
-
+        self->u.readDataAck.result = msg[idx++];  
         break;
     }
-
-    /**************** 7：写文件激活（命令） ****************/
+    /*写文件激活*/
     case FILE210_OP_WRITE_ACT:
         self->u.writeAct.nameLen = msg[idx++];
         if (self->u.writeAct.nameLen > FILE210_MAX_NAME)
             self->u.writeAct.nameLen = FILE210_MAX_NAME;
-
         if (idx + self->u.writeAct.nameLen > msgSize)
             self->u.writeAct.nameLen = msgSize - idx;
-
         memcpy(self->u.writeAct.name, msg + idx, self->u.writeAct.nameLen);
         self->u.writeAct.name[self->u.writeAct.nameLen] = '\0';
         idx += self->u.writeAct.nameLen;
-
         if (idx + 8 > msgSize) {
             DEBUG_PRINT("FileExt210 WRITE_ACT: too small\n");
             break;
@@ -1336,22 +1176,17 @@ FileExt210_getFromBuffer(FileExt210 self,
         self->u.writeAct.fileId   = get_le32(msg + idx); idx += 4;
         self->u.writeAct.fileSize = get_le32(msg + idx); idx += 4;
         break;
-
-    /**************** 8：写文件激活确认 ****************/
+    /*写文件激活确认*/
     case FILE210_OP_WRITE_ACT_ACK:
         self->u.writeActAck.result  = msg[idx++];
-
         self->u.writeActAck.nameLen = msg[idx++];
         if (self->u.writeActAck.nameLen > FILE210_MAX_NAME)
             self->u.writeActAck.nameLen = FILE210_MAX_NAME;
-
         if (idx + self->u.writeActAck.nameLen > msgSize)
             self->u.writeActAck.nameLen = msgSize - idx;
-
         memcpy(self->u.writeActAck.name, msg + idx, self->u.writeActAck.nameLen);
         self->u.writeActAck.name[self->u.writeActAck.nameLen] = '\0';
         idx += self->u.writeActAck.nameLen;
-
         if (idx + 8 > msgSize) {
             DEBUG_PRINT("FileExt210 WRITE_ACT_ACK: too small\n");
             break;
@@ -1359,24 +1194,19 @@ FileExt210_getFromBuffer(FileExt210 self,
         self->u.writeActAck.fileId   = get_le32(msg + idx); idx += 4;
         self->u.writeActAck.fileSize = get_le32(msg + idx); idx += 4;
         break;
-
-    /**************** 9：写文件数据 ****************/
+    /*写文件数据*/
     case FILE210_OP_WRITE_DATA:
         if (idx + 9 > msgSize) {
             DEBUG_PRINT("FileExt210 WRITE_DATA: too small\n");
             GLOBAL_FREEMEM(self);
             return NULL;
         }
-
         self->u.writeData.fileId = get_le32(msg + idx); idx += 4;
         self->u.writeData.segNo  = get_le32(msg + idx); idx += 4;
         self->u.writeData.hasMore = msg[idx++];
-
-        /* 剩下 = data + checksum(1) */
         self->u.writeData.dataLen = msgSize - idx - 1;
         if (self->u.writeData.dataLen < 0)
             self->u.writeData.dataLen = 0;
-
         if (self->u.writeData.dataLen > 0) {
             self->u.writeData.data = (uint8_t *) GLOBAL_MALLOC(self->u.writeData.dataLen);
             if (self->u.writeData.data)
@@ -1386,15 +1216,12 @@ FileExt210_getFromBuffer(FileExt210 self,
         else {
             self->u.writeData.data = NULL;
         }
-
         if (idx < msgSize)
             self->u.writeData.checksum = msg[idx++];
         else
             self->u.writeData.checksum = 0;
-
         break;
-
-    /**************** 10：写文件数据确认 ****************/
+    /*写文件数据确认*/
     case FILE210_OP_WRITE_DATA_ACK:
         if (idx + 9 > msgSize) {
             DEBUG_PRINT("FileExt210 WRITE_DATA_ACK: too small\n");
@@ -1405,70 +1232,53 @@ FileExt210_getFromBuffer(FileExt210 self,
         self->u.writeDataAck.segNo  = get_le32(msg + idx); idx += 4;
         self->u.writeDataAck.result = msg[idx++];
         break;
-
     default:
         DEBUG_PRINT("FileExt210_getFromBuffer: unsupported op=%u\n", self->op);
         GLOBAL_FREEMEM(self);
         return NULL;
     }
-
     return self;
 }
-
-/* ---------- destroy ---------- */
+/*destroy*/
 void
 FileExt210_destroy(FileExt210 self)
 {
     if (self == NULL)
         return;
-
     switch (self->op) {
-
-    /* ===== 1/2 目录相关 ===== */
-    case FILE210_OP_DIR_CALL:        /* 1: 目录召唤 */
-    case FILE210_OP_DIR_CALL_ACK:    /* 2: 目录召唤确认 */
-        /* dirCall / dirCallAck 里只有内嵌数组和普通字段，没有 malloc 的指针 */
+    /*1/2目录相关*/
+    case FILE210_OP_DIR_CALL:        
+    case FILE210_OP_DIR_CALL_ACK:   
         break;
-
-    /* ===== 3/4/5/6 读文件相关 ===== */
-    case FILE210_OP_READ_DATA:       /* 5: 读文件数据 */
+    /*3/4/5/6读文件相关*/
+    case FILE210_OP_READ_DATA:      
         if (self->u.readData.data != NULL) {
             GLOBAL_FREEMEM(self->u.readData.data);
             self->u.readData.data    = NULL;
             self->u.readData.dataLen = 0;
         }
         break;
-
-    case FILE210_OP_READ_ACT:        /* 3: 读文件激活 */
-    case FILE210_OP_READ_ACT_ACK:    /* 4: 读文件激活确认 */
-    case FILE210_OP_READ_DATA_ACK:   /* 6: 读文件数据响应 */
-        /* 这些里只有 name[ ]、fileId 等内嵌字段，不需要 free */
+    case FILE210_OP_READ_ACT:       
+    case FILE210_OP_READ_ACT_ACK:    
+    case FILE210_OP_READ_DATA_ACK:   
         break;
-
-    /* ===== 7/8/9/10 写文件相关 ===== */
-    case FILE210_OP_WRITE_DATA:      /* 9: 写文件数据 */
+    /*7/8/9/10写文件相关*/
+    case FILE210_OP_WRITE_DATA:    
         if (self->u.writeData.data != NULL) {
             GLOBAL_FREEMEM(self->u.writeData.data);
             self->u.writeData.data    = NULL;
             self->u.writeData.dataLen = 0;
         }
         break;
-
-    case FILE210_OP_WRITE_ACT:       /* 7: 写文件激活 */
-    case FILE210_OP_WRITE_ACT_ACK:   /* 8: 写文件激活确认 */
-    case FILE210_OP_WRITE_DATA_ACK:  /* 10: 写文件数据传输确认 */
-        /* 同样只有内嵌 name[ ] / 基本字段，不需要 free */
+    case FILE210_OP_WRITE_ACT:      
+    case FILE210_OP_WRITE_ACT_ACK:   
+    case FILE210_OP_WRITE_DATA_ACK:  
         break;
-
     default:
-        /* 未知 op：为了安全起见，不主动 free 任何指针，避免误 free 外部缓冲 */
         break;
     }
-
     GLOBAL_FREEMEM(self);
 }
-
-
 
 /**********************************************
  * StepPositionInformation
