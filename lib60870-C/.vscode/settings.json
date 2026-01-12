@@ -16,6 +16,11 @@
         "hal_thread.h": "c",
         "cs101_slave.h": "c",
         "cerrno": "c",
-        "errno.h": "c"
+        "errno.h": "c",
+        "pthread.h": "c",
+        "array": "c",
+        "string": "c",
+        "string_view": "c",
+        "cs104_slave.h": "c"
     }
 }

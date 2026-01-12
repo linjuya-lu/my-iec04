@@ -25,8 +25,6 @@
 static volatile bool g_running = true;
 static volatile bool g_dir_done  = false;
 static volatile bool g_read_done = false;
-
-
 static volatile bool g_needFinish = false;
 static uint32_t g_finishFileId = 0;
 static uint32_t g_finishSegNo  = 0;
